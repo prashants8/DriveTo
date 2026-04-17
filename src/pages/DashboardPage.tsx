@@ -4,7 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
 import { FileCard } from '../components/features/FileCard';
 import { FileUpload } from '../components/features/FileUpload';
+import { EditFileModal } from '../components/features/EditFileModal';
+import { FilePreviewModal } from '../components/features/FilePreviewModal';
 import { useStorage } from '../hooks/useStorage';
+import { UserFile } from '../types';
 import { HardDrive, Search, Loader2 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -14,8 +17,10 @@ interface DashboardPageProps {
 export function DashboardPage({ user }: DashboardPageProps) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'upload'>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingFile, setEditingFile] = useState<UserFile | null>(null);
+  const [previewFile, setPreviewFile] = useState<UserFile | null>(null);
   const navigate = useNavigate();
-  const { files, loading, uploading, uploadFile, deleteFile } = useStorage(user?.id);
+  const { files, loading, uploading, uploadFile, renameFile, deleteFile } = useStorage(user?.id);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -94,6 +99,8 @@ export function DashboardPage({ user }: DashboardPageProps) {
                     key={file.id} 
                     file={file} 
                     onDelete={deleteFile}
+                    onEdit={(f) => setEditingFile(f)}
+                    onPreview={(f) => setPreviewFile(f)}
                   />
                 ))}
               </div>
@@ -119,6 +126,21 @@ export function DashboardPage({ user }: DashboardPageProps) {
           </div>
         )}
       </main>
+
+      {editingFile && (
+        <EditFileModal
+          file={editingFile}
+          onClose={() => setEditingFile(null)}
+          onRename={renameFile}
+        />
+      )}
+
+      {previewFile && (
+        <FilePreviewModal
+          file={previewFile}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
     </div>
   );
 }

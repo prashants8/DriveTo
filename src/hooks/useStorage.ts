@@ -29,13 +29,19 @@ export function useStorage(userId: string | undefined) {
 
   const uploadFile = async (file: File) => {
     if (!userId) return;
+    
+    // Check for duplicate name
+    if (files.some(f => f.file_name === file.name)) {
+      toast.error(`A file named "${file.name}" already exists.`);
+      return;
+    }
+
     try {
       setUploading(true);
       
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}/${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `user-files/${fileName}`;
-
+      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('user-files')
         .upload(fileName, file);
@@ -62,6 +68,30 @@ export function useStorage(userId: string | undefined) {
       toast.error('Error uploading file: ' + error.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const renameFile = async (file: UserFile, newName: string) => {
+    if (!userId) return;
+    
+    // Check for duplicate name
+    if (files.some(f => f.file_name === newName && f.id !== file.id)) {
+      toast.error(`A file named "${newName}" already exists.`);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('files')
+        .update({ file_name: newName })
+        .eq('id', file.id);
+
+      if (error) throw error;
+      
+      toast.success('File renamed');
+      setFiles(prev => prev.map(f => f.id === file.id ? { ...f, file_name: newName } : f));
+    } catch (error: any) {
+      toast.error('Error renaming file: ' + error.message);
     }
   };
 
@@ -99,5 +129,5 @@ export function useStorage(userId: string | undefined) {
     fetchFiles();
   }, [userId]);
 
-  return { files, loading, uploading, uploadFile, deleteFile, fetchFiles };
+  return { files, loading, uploading, uploadFile, renameFile, deleteFile, fetchFiles };
 }
