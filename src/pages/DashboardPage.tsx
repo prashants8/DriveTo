@@ -1,0 +1,124 @@
+import React, { useState } from 'react';
+import { supabase } from '@/src/lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { Sidebar } from '../components/layout/Sidebar';
+import { FileCard } from '../components/features/FileCard';
+import { FileUpload } from '../components/features/FileUpload';
+import { useStorage } from '../hooks/useStorage';
+import { HardDrive, Search, Loader2 } from 'lucide-react';
+
+interface DashboardPageProps {
+  user: any;
+}
+
+export function DashboardPage({ user }: DashboardPageProps) {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'upload'>('dashboard');
+  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
+  const { files, loading, uploading, uploadFile, deleteFile } = useStorage(user?.id);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
+
+  const filteredFiles = files.filter(f => 
+    f.file_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const stats = {
+    total: files.length,
+    size: files.reduce((acc, f) => acc + f.file_size, 0),
+    latest: files[0]?.created_at ? new Date(files[0].created_at).toLocaleDateString() : 'N/A'
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onLogout={handleLogout} 
+      />
+
+      <main className="ml-64 p-8">
+        <header className="flex items-center justify-between mb-10">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              {activeTab === 'dashboard' ? 'My Files' : 'Upload Files'}
+            </h1>
+            <p className="text-slate-500">
+              {activeTab === 'dashboard' 
+                ? `Managing ${files.length} documents in your DriveTo storage.` 
+                : 'Upload new documents, images, and tools to your cloud.'}
+            </p>
+          </div>
+
+          <div className="relative w-72">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search files..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-800 rounded-2xl h-11 pl-11 pr-4 text-sm focus:outline-none focus:border-indigo-500 transition-colors text-white placeholder:text-slate-600"
+            />
+          </div>
+        </header>
+
+        {activeTab === 'dashboard' ? (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Stats Overview */}
+            <div className="grid grid-cols-3 gap-6">
+              {[
+                { label: 'Total Files', value: stats.total, sub: 'Successfully stored' },
+                { label: 'Cloud Usage', value: (stats.size / 1024 / 1024).toFixed(2) + ' MB', sub: 'Of free tier storage' },
+                { label: 'Last Upload', value: stats.latest, sub: 'Recent activity' },
+              ].map((stat, i) => (
+                <div key={i} className="p-6 bg-slate-900/30 border border-slate-800/50 rounded-2xl">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{stat.label}</p>
+                  <p className="text-2xl font-bold text-white">{stat.value}</p>
+                  <p className="text-xs text-slate-600 mt-1">{stat.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                <p className="text-slate-500 text-sm font-medium">Scanning your cloud...</p>
+              </div>
+            ) : filteredFiles.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredFiles.map((file) => (
+                  <FileCard 
+                    key={file.id} 
+                    file={file} 
+                    onDelete={deleteFile}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-slate-800 rounded-[2.5rem]">
+                <div className="p-6 bg-slate-900 rounded-3xl mb-6">
+                   <HardDrive className="w-12 h-12 text-slate-700" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">No files found</h3>
+                <p className="text-slate-500 mb-8 max-w-xs">Start by uploading some files to your secure personal cloud storage.</p>
+                <button 
+                  onClick={() => setActiveTab('upload')}
+                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-600/20"
+                >
+                  Upload my first file
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <FileUpload onUpload={uploadFile} uploading={uploading} />
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
